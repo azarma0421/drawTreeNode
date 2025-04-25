@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>D3.js 樹狀圖</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        #tree-container {
+            width: 75vw;
+            height: 75vh;
+            border: 1px solid #ccc;
+            margin: 0 auto;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .node rect {
+            fill: #fff;
+            stroke-width: 2px;
+        }
+
+        .node text {
+            font: 12px sans-serif;
+        }
+
+        .link {
+            fill: none;
+            stroke: #ccc;
+            stroke-width: 2px;
+        }
+
+        /* 添加按紐樣式 */
+        .control-buttons {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+            z-index: 1000;
+        }
+
+        .control-button {
+            width: 32px;
+            height: 32px;
+            border: none;
+            border-radius: 4px;
+            background-color: white;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .control-button:hover {
+            background-color: #f0f0f0;
+            transform: translateY(-2px);
+        }
+
+        .control-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        .control-button:disabled svg {
+            fill: #999;
+        }
+
+        .control-button svg {
+            width: 20px;
+            height: 20px;
+            fill: #2196F3;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="tree-container">
+        <!-- 添加按鈕容器 -->
+        <div class="control-buttons">
+            <button id="extend" class="control-button" title="展開">
+                <svg viewBox="0 0 24 24">
+                    <path
+                        d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+                    <path d="M12 10h-2v2H9v-2H7V9h2V7h1v2h2v1z" />
+                </svg>
+            </button>
+            <button id="create" class="control-button" title="新增">
+                <svg viewBox="0 0 24 24">
+                    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+                </svg>
+            </button>
+            <button id="edit" class="control-button" title="編輯">
+                <svg viewBox="0 0 24 24">
+                    <path
+                        d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
+                </svg>
+            </button>
+            <button id="delete" class="control-button" title="刪除">
+                <svg viewBox="0 0 24 24">
+                    <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
+                </svg>
+            </button>
+        </div>
+    </div>
+    <style>
+        /* 在現有的 style 標籤中添加 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1001;
+        }
+    
+        .modal-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            min-width: 300px;
+        }
+    
+        .modal-content input {
+            width: 100%;
+            padding: 8px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+    
+        .modal-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+    
+        .modal-button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+    
+        .modal-button.confirm {
+            background-color: #4CAF50;
+            color: white;
+        }
+    
+        .modal-button.confirm:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+    
+        .modal-button.cancel {
+            background-color: #f0f0f0;
+        }
+    </style>
+    
+    <!-- 在 body 中添加，放在 tree-container 後面 -->
+    <div id="nodeModal" class="modal">
+        <div class="modal-content">
+            <h3 id="modalTitle">新增節點</h3>
+            <input type="text" id="nodeName" placeholder="請輸入節點名稱">
+            <div class="modal-buttons">
+                <button class="modal-button cancel" onclick="closeModal()">取消</button>
+                <button id="confirmButton" class="modal-button confirm" disabled>確定</button>
+            </div>
+        </div>
+    </div>
+    <script src="tree.js"></script>
+</body>
+
+</html>
