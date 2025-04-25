@@ -101,7 +101,7 @@ function findNearestParent(node, allNodes, threshold = CONFIG.dragThreshold) {
 
     allNodes.forEach(potentialParent => {
         if (potentialParent === node || potentialParent === node.parent) return;
-
+        if (!isLegallyParentNode(node, potentialParent)) return;
         const distance = Math.sqrt(
             Math.pow(node.x - potentialParent.x, 2) +
             Math.pow(node.y - potentialParent.y, 2)
@@ -114,6 +114,15 @@ function findNearestParent(node, allNodes, threshold = CONFIG.dragThreshold) {
     });
 
     return nearestParent;
+}
+
+// 檢查 potentialParent 是否可以成為 node 的父節點
+function isLegallyParentNode(node, potentialParent) {
+    while (potentialParent.parent) {
+        potentialParent = potentialParent.parent;
+        if (potentialParent === node) return false;
+    }
+    return true;
 }
 
 function updateNodeParent(node, newParent) {
